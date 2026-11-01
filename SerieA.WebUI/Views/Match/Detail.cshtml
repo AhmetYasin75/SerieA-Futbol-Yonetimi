@@ -1,0 +1,515 @@
+﻿@* Bu ekranın alacağı veri: MatchDetailViewModel (Controller'dan gelir) *@
+@using SerieA.WebUI.ViewModels
+@model MatchDetailViewModel
+
+@{
+    // Sekme başlığı ve body sınıfı (tasarımın stilleri "match-page" sınıfına bağlı)
+    ViewData["Title"] = Model.HomeTeamName + " - " + Model.AwayTeamName;
+    ViewData["BodyClass"] = "match-page";
+
+    // Türkçe tarih yazımı için (örn: "12 Eylül 2026")
+    var tr = new System.Globalization.CultureInfo("tr-TR");
+
+    // Takım arması rozetinin rengi (takım renkleri veritabanında olmadığı için hepsi aynı mavi)
+    var crestStyle = "--crest-a:#2E7BFF;--crest-b:#0B1730;--crest-ink:#fff";
+
+    // Maç durumunu Türkçe yazıya çevirir
+    string StatusLabel(MatchStatus s)
+    {
+        return s switch
+        {
+            MatchStatus.NotStarted => "Başlamadı",
+            MatchStatus.Live => "Canlı",
+            MatchStatus.Finished => "Maç bitti",
+            _ => "Ertelendi"
+        };
+    }
+
+    // Skor sadece biten ve canlı maçlarda gösterilir
+    var showScore = (Model.Status == MatchStatus.Finished || Model.Status == MatchStatus.Live)
+                    && Model.HomeScore != null && Model.AwayScore != null;
+
+    // Her takımın golleri (dakikaya göre sıralı)
+    var homeGoals = Model.Goals.Where(g => g.TeamId == Model.HomeTeamId).OrderBy(g => g.Minute).ToList();
+    var awayGoals = Model.Goals.Where(g => g.TeamId == Model.AwayTeamId).OrderBy(g => g.Minute).ToList();
+
+    // İlk yarı skoru: 45. dakikaya kadar (45 dahil) atılan goller
+    var htHome = homeGoals.Count(g => g.Minute <= 45);
+    var htAway = awayGoals.Count(g => g.Minute <= 45);
+
+    // Maç bittiyse ve bir takım kaybettiyse, o takımın adı ve skoru soluk görünür
+    var homeLost = Model.Status == MatchStatus.Finished && Model.HomeScore < Model.AwayScore;
+    var awayLost = Model.Status == MatchStatus.Finished && Model.AwayScore < Model.HomeScore;
+}
+
+@* _Layout'taki "Styles" bölümüne bu sayfanın CSS dosyasını ekler *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/match.css" />
+}
+
+@* Sayfada tekrar tekrar kullanılan ikonlar (top, değişiklik oku, takvim, saat, stadyum) *@
+<svg aria-hidden="true" height="0" style="position:absolute" width="0">
+    <symbol id="i-ball" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" fill="none" r="9" stroke="currentColor" stroke-width="1.8"></circle>
+        <path d="M12 7.4l3.4 2.5-1.3 4h-4.2l-1.3-4z" fill="currentColor"></path>
+        <path d="M12 3v4.4M20.5 9.3l-5.1.6M17.4 19.4l-3.3-5.5M6.6 19.4l3.3-5.5M3.5 9.3l5.1.6" fill="none" stroke="currentColor" stroke-width="1.4"></path>
+    </symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24">
+        <path d="M7 4v14M3.5 7.5L7 4l3.5 3.5M17 20V6M13.5 16.5L17 20l3.5-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+        <rect fill="none" height="15" rx="2.5" stroke="currentColor" stroke-width="1.8" width="17" x="3.5" y="5"></rect>
+        <path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"></path>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" fill="none" r="8.5" stroke="currentColor" stroke-width="1.8"></circle>
+        <path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"></path>
+    </symbol>
+    <symbol id="i-stadium" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="9" fill="none" rx="9" ry="3.5" stroke="currentColor" stroke-width="1.8"></ellipse>
+        <path d="M3 9v6c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5V9" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+    </symbol>
+</svg>
+
+<main class="match-shell container-xl" data-match>
+
+    @* ===== Skor tablosu (hero) ===== *@
+    <header class="match-hero">
+
+        @* Üst şerit: müsabaka etiketleri ve maç durumu *@
+        <div class="hero-topbar">
+            <ul aria-label="Müsabaka" class="comp-tags">
+                <li class="comp-tag comp-tag--league">Serie A</li>
+                <li class="comp-tag">2026/27</li>
+                <li class="comp-tag">Hafta @Model.Week</li>
+            </ul>
+            <span class="status-pill">@StatusLabel(Model.Status)</span>
+        </div>
+
+        <div class="scoreboard">
+
+            @* Ev sahibi takım: arma, ad ve attığı goller *@
+            <div class="sb-team sb-team--home @(homeLost ? "is-loser" : "")">
+                <span aria-hidden="true" class="team-crest team-crest--xl" style="@crestStyle">@Model.HomeTeamShortName</span>
+                <div>
+                    <span class="sb-team__role">Ev sahibi</span>
+                    <h1 class="sb-team__name">@Model.HomeTeamName</h1>
+                    <ul aria-label="@Model.HomeTeamName golleri" class="sb-scorers">
+                        @foreach (var g in homeGoals)
+                        {
+                            <li>
+                                <svg aria-hidden="true" class="i-ball"><use href="#i-ball"></use></svg>
+                                @g.PlayerName @g.Minute'
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            @* Orta: büyük skor ve ilk yarı skoru *@
+            <div class="sb-score">
+                @if (showScore)
+                {
+                    <p class="sb-score__value">
+                        <span class="@(homeLost ? "is-loser" : "")">@Model.HomeScore</span>
+                        <span aria-hidden="true" class="sb-score__sep"></span>
+                        <span class="@(awayLost ? "is-loser" : "")">@Model.AwayScore</span>
+                    </p>
+                    <p class="sb-score__ht">İlk yarı @(htHome)-@(htAway)</p>
+                }
+                else
+                {
+                    @* Maç henüz oynanmadıysa skor yerine tire gösterilir *@
+                    <p class="sb-score__value"><span>-</span></p>
+                }
+            </div>
+
+            @* Deplasman takımı: arma, ad ve attığı goller *@
+            <div class="sb-team sb-team--away @(awayLost ? "is-loser" : "")">
+                <span aria-hidden="true" class="team-crest team-crest--xl" style="@crestStyle">@Model.AwayTeamShortName</span>
+                <div>
+                    <span class="sb-team__role">Deplasman</span>
+                    <h2 class="sb-team__name">@Model.AwayTeamName</h2>
+                    <ul aria-label="@Model.AwayTeamName golleri" class="sb-scorers">
+                        @foreach (var g in awayGoals)
+                        {
+                            <li>
+                                <svg aria-hidden="true" class="i-ball"><use href="#i-ball"></use></svg>
+                                @g.PlayerName @g.Minute'
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        @* Tarih, saat ve stadyum *@
+        <ul class="hero-facts">
+            <li><svg aria-hidden="true"><use href="#i-calendar"></use></svg>@Model.MatchDate.ToString("d MMMM yyyy", tr)</li>
+            <li><svg aria-hidden="true"><use href="#i-clock"></use></svg>@Model.MatchDate.ToString("HH:mm")</li>
+            <li><svg aria-hidden="true"><use href="#i-stadium"></use></svg>@Model.Stadium</li>
+        </ul>
+    </header>
+
+    @{
+        // Gol, kart ve değişiklikleri TEK listede toplayacağız. Her olay şu bilgileri taşır:
+        // Minute: dakika | Type: goal/card/sub | TeamId: takım | Player: oyuncu
+        // Meta: açıklama yazısı | Score: golden sonraki skor | Extra: kart rengi (yellow/red)
+        var events = new List<(int Minute, string Type, int TeamId, string Player, string Meta, string Score, string Extra)>();
+
+        // Goller: sırayla gez, her golde o takımın sayacını artır ve skoru yaz (örn: "1-0")
+        var runHome = 0;
+        var runAway = 0;
+        foreach (var goal in Model.Goals.OrderBy(x => x.Minute))
+        {
+            if (goal.TeamId == Model.HomeTeamId) { runHome++; } else { runAway++; }
+            events.Add((goal.Minute, "goal", goal.TeamId, goal.PlayerName, "Gol", runHome + "-" + runAway, ""));
+        }
+
+        // Kartlar: renk bilgisi Extra alanında tutulur (CSS sınıfı için "yellow" ya da "red")
+        foreach (var card in Model.Cards)
+        {
+            var isRed = card.CardType == CardType.Red;
+            events.Add((card.Minute, "card", card.TeamId, card.PlayerName, isRed ? "Kırmızı kart" : "Sarı kart", "", isRed ? "red" : "yellow"));
+        }
+
+        // Oyuncu değişiklikleri: giren oyuncu Player'da, çıkan oyuncu Meta'da
+        foreach (var sub in Model.Substitutions)
+        {
+            events.Add((sub.Minute, "sub", sub.TeamId, sub.PlayerIn, sub.PlayerOut, "", ""));
+        }
+
+        // Hepsini dakikaya göre sırala
+        var sortedEvents = events.OrderBy(x => x.Minute).ToList();
+
+        // "Devre arası" çizgisini bir kere göstermek için işaret
+        var halfShown = false;
+    }
+
+    @* ===== Maç gövdesi ===== *@
+    <div class="match-body">
+        <div class="row g-4">
+            <div class="col-lg-8">
+
+                @* ----- Maç olayları paneli ----- *@
+                <section aria-labelledby="timeline-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="timeline-title">Maç olayları</h2>
+
+                        @* Süzme düğmeleri: tıklayınca JavaScript listeyi süzer *@
+                        <div aria-label="Olay türüne göre filtrele" class="event-filter" role="group">
+                            <button aria-pressed="true" class="chip" data-event-filter="all" type="button">Tümü</button>
+                            <button aria-pressed="false" class="chip" data-event-filter="goal" type="button">Goller</button>
+                            <button aria-pressed="false" class="chip" data-event-filter="card" type="button">Kartlar</button>
+                            <button aria-pressed="false" class="chip" data-event-filter="sub" type="button">Değişiklikler</button>
+                        </div>
+                    </div>
+
+                    @* Hangi sütunun hangi takım olduğunu gösteren küçük başlık *@
+                    <div aria-hidden="true" class="timeline-legend">
+                        <span><span class="team-crest team-crest--xs" style="@crestStyle">@Model.HomeTeamShortName</span>@Model.HomeTeamName</span>
+                        <span></span>
+                        <span>@Model.AwayTeamName<span class="team-crest team-crest--xs" style="@crestStyle">@Model.AwayTeamShortName</span></span>
+                    </div>
+
+                    <ol class="timeline">
+                        <li class="event event--period"><span class="period-mark">Başlama düdüğü</span></li>
+
+                        @foreach (var ev in sortedEvents)
+                        {
+                            @* İlk 45 dakikadan sonraki ilk olayın önüne "Devre arası" çizgisi koy *@
+                            if (!halfShown && ev.Minute > 45)
+                            {
+                                halfShown = true;
+                                <li class="event event--period"><span class="period-mark">Devre arası</span></li>
+                            }
+
+                            // Olay hangi tarafta (sol: ev sahibi, sağ: deplasman) ve hangi renk sınıfı
+                            var side = ev.TeamId == Model.HomeTeamId ? "home" : "away";
+                            var cls = ev.Type == "card" ? ev.Extra : ev.Type;
+
+                            <li class="event event--@side event--@cls" data-type="@ev.Type">
+                                <span class="event__minute">@ev.Minute'</span>
+                                <div class="event-card">
+                                    <span class="event-card__icon">
+                                        @if (ev.Type == "goal")
+                                        {
+                                            <svg aria-hidden="true" class="i-ball"><use href="#i-ball"></use></svg>
+                                        }
+                                        else if (ev.Type == "card")
+                                        {
+                                            <span class="i-card i-card--@ev.Extra"></span>
+                                        }
+                                        else
+                                        {
+                                            <svg aria-hidden="true" height="18" width="18"><use href="#i-swap"></use></svg>
+                                        }
+                                    </span>
+                                    <span class="event-card__body">
+                                        @if (ev.Type == "sub")
+                                        {
+                                            @* Değişiklikte giren oyuncu yeşil, çıkan oyuncu kırmızı görünür *@
+                                            <span class="event-card__player sub-in">@ev.Player</span>
+                                            <span class="event-card__meta sub-out">@ev.Meta</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="event-card__player">@ev.Player</span>
+                                            <span class="event-card__meta">@ev.Meta</span>
+                                        }
+                                    </span>
+                                    @if (ev.Type == "goal")
+                                    {
+                                        <span class="event-score">@ev.Score</span>
+                                    }
+                                </div>
+                            </li>
+                        }
+
+                        @* Hiç olay 45'ten sonra olmadıysa devre arasını sona doğru göster *@
+                        @if (!halfShown && Model.Status == MatchStatus.Finished)
+                        {
+                            <li class="event event--period"><span class="period-mark">Devre arası</span></li>
+                        }
+
+                        @if (Model.Status == MatchStatus.Finished)
+                        {
+                            <li class="event event--period"><span class="period-mark">Maç sonu</span></li>
+                        }
+                    </ol>
+                </section>
+
+                @{
+                    // İki takımı bir listeye koyuyoruz. Aşağıda her panel bu listeyi dönerek
+                    // ev sahibi ve deplasman için aynı kodu iki kez yazmamızı engelliyor
+                    var matchTeams = new[]
+                    {
+                                (Id: Model.HomeTeamId, Name: Model.HomeTeamName, Short: Model.HomeTeamShortName),
+                                (Id: Model.AwayTeamId, Name: Model.AwayTeamName, Short: Model.AwayTeamShortName)
+                                };
+                }
+
+                @* ----- Goller paneli ----- *@
+                <section aria-labelledby="goals-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="goals-title">Goller</h2>
+                    </div>
+                    <div class="split">
+                        @foreach (var t in matchTeams)
+                        {
+                            // Bu takımın golleri (dakikaya göre sıralı)
+                            var teamGoals = Model.Goals.Where(x => x.TeamId == t.Id).OrderBy(x => x.Minute).ToList();
+
+                            <div class="split__col">
+                                <h3 class="split__team">
+                                    <span aria-hidden="true" class="team-crest team-crest--xs" style="@crestStyle">@t.Short</span>
+                                    @t.Name
+                                    <span class="split__count">@teamGoals.Count gol</span>
+                                </h3>
+                                <ul class="item-list goal-list">
+                                    @foreach (var goal in teamGoals)
+                                    {
+                                        <li>
+                                            <span class="item-minute">@goal.Minute'</span>
+                                            <span class="item-main"><strong>@goal.PlayerName</strong></span>
+                                        </li>
+                                    }
+                                    @if (teamGoals.Count == 0)
+                                    {
+                                        <li class="item-empty">Gol yok</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                @* ----- Kartlar paneli ----- *@
+                <section aria-labelledby="cards-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="cards-title">Kartlar</h2>
+                    </div>
+                    <div class="split">
+                        @foreach (var t in matchTeams)
+                        {
+                            var teamCards = Model.Cards.Where(x => x.TeamId == t.Id).OrderBy(x => x.Minute).ToList();
+
+                            <div class="split__col">
+                                <h3 class="split__team">
+                                    <span aria-hidden="true" class="team-crest team-crest--xs" style="@crestStyle">@t.Short</span>
+                                    @t.Name
+                                    <span class="split__count">@teamCards.Count kart</span>
+                                </h3>
+                                <ul class="item-list">
+                                    @foreach (var card in teamCards)
+                                    {
+                                        // Kart rengine göre CSS sınıfı ve yazı
+                                        var cardColor = card.CardType == CardType.Red ? "red" : "yellow";
+                                        var cardText = card.CardType == CardType.Red ? "Kırmızı" : "Sarı";
+
+                                        <li>
+                                            <span class="item-minute">@card.Minute'</span>
+                                            <span class="item-main"><strong>@card.PlayerName</strong></span>
+                                            <span class="card-tag"><span class="i-card i-card--@cardColor"></span>@cardText</span>
+                                        </li>
+                                    }
+                                    @if (teamCards.Count == 0)
+                                    {
+                                        <li class="item-empty">Kart yok</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                @* ----- Oyuncu değişiklikleri paneli ----- *@
+                <section aria-labelledby="subs-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="subs-title">Oyuncu değişiklikleri</h2>
+                    </div>
+                    <div class="split">
+                        @foreach (var t in matchTeams)
+                        {
+                            var teamSubs = Model.Substitutions.Where(x => x.TeamId == t.Id).OrderBy(x => x.Minute).ToList();
+
+                            <div class="split__col">
+                                <h3 class="split__team">
+                                    <span aria-hidden="true" class="team-crest team-crest--xs" style="@crestStyle">@t.Short</span>
+                                    @t.Name
+                                    <span class="split__count">@teamSubs.Count değişiklik</span>
+                                </h3>
+                                <ul class="item-list">
+                                    @foreach (var sub in teamSubs)
+                                    {
+                                        <li>
+                                            <span class="item-minute">@sub.Minute'</span>
+                                            <span class="item-main">
+                                                @* Giren oyuncu yeşil, çıkan oyuncu kırmızı görünür *@
+                                                <strong class="sub-in">@sub.PlayerIn</strong>
+                                                <small class="sub-out">@sub.PlayerOut</small>
+                                            </span>
+                                        </li>
+                                    }
+                                    @if (teamSubs.Count == 0)
+                                    {
+                                        <li class="item-empty">Değişiklik yok</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+            </div>
+
+            @{
+                // İkinci yarı golleri: 45. dakikadan sonra atılanlar
+                var shHome = homeGoals.Count(x => x.Minute > 45);
+                var shAway = awayGoals.Count(x => x.Minute > 45);
+
+                // Gol kayıtları skorla uyuşuyor mu? Uyuşmuyorsa yarı skorlarını göstermeyeceğiz
+                var goalsMatchScore = showScore
+                && homeGoals.Count == Model.HomeScore
+                && awayGoals.Count == Model.AwayScore;
+
+                // Skora göre "kim önde" notu: "Inter önde" ya da "Berabere"
+                string Lead(int h, int a)
+                {
+                    if (h > a) { return Model.HomeTeamName + " önde"; }
+                    if (a > h) { return Model.AwayTeamName + " önde"; }
+                    return "Berabere";
+                }
+
+                // Sonuç kartının notu: maç bittiyse "kazandı", canlıysa "önde"
+                var finalNote = "";
+                if (showScore)
+                {
+                    if (Model.HomeScore == Model.AwayScore) { finalNote = "Berabere"; }
+                    else
+                    {
+                        var winner = Model.HomeScore > Model.AwayScore ? Model.HomeTeamName : Model.AwayTeamName;
+                        finalNote = winner + (Model.Status == MatchStatus.Finished ? " kazandı" : " önde");
+                    }
+                }
+            }
+
+            @* ===== Sağ sütun: yarı skorları ve maç bilgileri ===== *@
+            <aside aria-label="Maç özeti" class="col-lg-4 side-col">
+
+                @* Yarı skorları kartları (maç oynanmadıysa hiç gösterilmez) *@
+                @if (showScore)
+                {
+                    <div class="period-cards">
+                        @if (goalsMatchScore)
+                        {
+                            <article class="period-card">
+                                <p class="period-card__label">İlk yarı</p>
+                                <p class="period-card__score">@(htHome)-@(htAway)</p>
+                                <p class="period-card__note">@Lead(htHome, htAway)</p>
+                            </article>
+                            <article class="period-card">
+                                <p class="period-card__label">İkinci yarı</p>
+                                <p class="period-card__score">@(shHome)-@(shAway)</p>
+                                <p class="period-card__note">@Lead(shHome, shAway)</p>
+                            </article>
+                        }
+                        <article class="period-card period-card--final">
+                            <p class="period-card__label">Sonuç</p>
+                            <p class="period-card__score">@(Model.HomeScore)-@(Model.AwayScore)</p>
+                            <p class="period-card__note">@finalNote</p>
+                        </article>
+                    </div>
+                }
+
+                @* Maç bilgileri paneli *@
+                <section aria-labelledby="info-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="info-title">Maç bilgileri</h2>
+                    </div>
+                    <dl class="info-list">
+                        <div><dt>Lig</dt><dd>Serie A</dd></div>
+                        <div><dt>Sezon</dt><dd>2026/27</dd></div>
+                        <div><dt>Hafta</dt><dd>@Model.Week</dd></div>
+                        <div><dt>Stadyum</dt><dd>@Model.Stadium</dd></div>
+                        <div><dt>Tarih</dt><dd>@Model.MatchDate.ToString("d MMMM yyyy", tr)</dd></div>
+                        <div><dt>Saat</dt><dd>@Model.MatchDate.ToString("HH:mm")</dd></div>
+                        <div><dt>Durum</dt><dd>@StatusLabel(Model.Status)</dd></div>
+                    </dl>
+                </section>
+            </aside>
+
+        </div>
+    </div>
+
+</main>
+
+@* Sayfanın altına yerleşen JavaScript: olay süzme düğmelerini çalıştırır *@
+@section Scripts {
+    <script>
+        (function () {
+            // Süzme düğmeleri ve zaman çizelgesindeki olay satırları
+            var chips = document.querySelectorAll('[data-event-filter]');
+            var events = document.querySelectorAll('.event[data-type]');
+
+            // Seçilen türe göre olayları göster ya da gizle
+            function setFilter(type) {
+                // Seçili düğmeyi vurgula
+                chips.forEach(function (chip) {
+                    chip.setAttribute('aria-pressed', String(chip.dataset.eventFilter === type));
+                });
+                // "Tümü" değilse, türü uymayan olayları gizle
+                events.forEach(function (ev) {
+                    ev.hidden = type !== 'all' && ev.dataset.type !== type;
+                });
+            }
+
+            // Her düğmeye tıklanınca süzmeyi çalıştır
+            chips.forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    setFilter(chip.dataset.eventFilter);
+                });
+            });
+        })();
+    </script>
+}

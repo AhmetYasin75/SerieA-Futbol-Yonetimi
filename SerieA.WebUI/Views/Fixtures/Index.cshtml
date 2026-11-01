@@ -1,0 +1,377 @@
+﻿@* Bu ekranın alacağı veri: FixturesViewModel (Controller'dan gelir) *@
+@using SerieA.WebUI.ViewModels
+@model FixturesViewModel
+
+@{
+    // Sekme başlığı ve body sınıfı (tasarımın stilleri "fixtures-page" sınıfına bağlı)
+    ViewData["Title"] = "Haftalık Fikstür";
+    ViewData["BodyClass"] = "fixtures-page";
+
+    // Türkçe tarih yazımı için (örn: "22 Ağustos")
+    var tr = new System.Globalization.CultureInfo("tr-TR");
+
+    // Hafta aralığını yazıya çevirir: "22 Ağustos – 23 Ağustos 2026"
+    string WeekRange(WeekViewModel w)
+    {
+        return w.StartDate.ToString("d MMMM", tr) + " – " + w.EndDate.ToString("d MMMM yyyy", tr);
+    }
+
+    // Maç durumunu Türkçe yazıya çevirir
+    string StatusLabel(MatchStatus s)
+    {
+        return s switch
+        {
+            MatchStatus.NotStarted => "Başlamadı",
+            MatchStatus.Live => "Canlı",
+            MatchStatus.Finished => "Maç bitti",
+            _ => "Ertelendi"
+        };
+    }
+
+    // Seçili haftanın bilgisi (o hafta listede yoksa null olur)
+    var selected = Model.Weeks.FirstOrDefault(w => w.Week == Model.SelectedWeek);
+
+    // Hafta seçicideki ok düğmeleri için ilk ve son hafta numarası
+    var minWeek = Model.Weeks.Count > 0 ? Model.Weeks.Min(w => w.Week) : 1;
+    var maxWeek = Model.Weeks.Count > 0 ? Model.Weeks.Max(w => w.Week) : 1;
+
+    // Haftanın maçları tarih sırasına göre
+    var ordered = Model.Matches.OrderBy(m => m.MatchDate).ThenBy(m => m.Id).ToList();
+
+    // Hafta bilgi kutusu için sayılar
+    var total = ordered.Count;
+    var finished = ordered.Count(m => m.Status == MatchStatus.Finished);
+    var live = ordered.Count(m => m.Status == MatchStatus.Live);
+
+    // Gol sayısı: sadece bitmiş ve canlı maçların skorları toplanır
+    var goals = ordered
+        .Where(m => m.Status == MatchStatus.Finished || m.Status == MatchStatus.Live)
+        .Sum(m => (m.HomeScore ?? 0) + (m.AwayScore ?? 0));
+
+    // Her takım haftada bir maç oynadığı için takım sayısı = maç sayısı x 2
+    var teamCount = total * 2;
+
+    // İlerleme yazısı: hepsi bittiyse "Hafta tamamlandı", değilse "7 / 10 maç tamamlandı"
+    var doneText = (total > 0 && finished == total)
+        ? "Hafta tamamlandı"
+        : finished + " / " + total + " maç tamamlandı";
+}
+
+@* _Layout'taki "Styles" bölümüne bu sayfanın CSS dosyasını ekler *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/fixtures.css" />
+}
+
+<main class="fixtures-shell container-xl">
+
+    @* ===== Üst başlık alanı (hero) ===== *@
+    <header class="fixtures-hero">
+        <div class="hero-league">
+            <span class="hero-league__name">
+                <span aria-hidden="true" class="league-mark">SA</span>
+                İtalya, Serie A
+            </span>
+        </div>
+        <div class="hero-row">
+            <div>
+                <h1 class="hero-title">Serie A Fikstür</h1>
+                <p class="hero-subtitle">Haftayı seç, o haftanın tüm maçlarını gün gün, skor ve durum bilgisiyle gör.</p>
+            </div>
+            <dl class="hero-meta">
+                <div>
+                    <dt>Takım</dt>
+                    <dd>@teamCount</dd>
+                </div>
+                <div>
+                    <dt>Hafta</dt>
+                    <dd>@Model.Weeks.Count</dd>
+                </div>
+                <div>
+                    <dt>Güncel hafta</dt>
+                    <dd>@Model.CurrentWeek</dd>
+                </div>
+            </dl>
+        </div>
+    </header>
+
+    @* ===== Hafta seçici ===== *@
+    <nav aria-label="Hafta seçici" class="week-nav">
+
+        @* Önceki hafta oku: ilk haftadaysak tıklanamaz (disabled) *@
+        @if (Model.SelectedWeek <= minWeek)
+        {
+            <button aria-label="Önceki hafta" class="week-arrow" type="button" disabled>
+                <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"></path></svg>
+            </button>
+        }
+        else
+        {
+            <a aria-label="Önceki hafta" class="week-arrow text-decoration-none" href="/Fixtures?week=@(Model.SelectedWeek - 1)">
+                <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"></path></svg>
+            </a>
+        }
+
+        @* Hafta düğmeleri: her biri o haftanın sayfasına giden bir bağlantı *@
+        <ul class="week-list">
+            @foreach (var w in Model.Weeks)
+            {
+                <li>
+                    <a class="week-btn d-block text-decoration-none" href="/Fixtures?week=@w.Week" aria-pressed="@(w.Week == Model.SelectedWeek ? "true" : "false")">
+                        <span class="week-btn__top">
+                            <span class="week-btn__title">@w.Week. Hafta</span>
+                            @if (w.Week == Model.CurrentWeek)
+                            {
+                                <span class="week-tag week-tag--current">Güncel</span>
+                            }
+                            <span class="week-tag week-tag--active">Aktif hafta</span>
+                        </span>
+                        <span class="week-btn__range">@WeekRange(w)</span>
+                    </a>
+                </li>
+            }
+        </ul>
+
+        @* Sonraki hafta oku: son haftadaysak tıklanamaz (disabled) *@
+        @if (Model.SelectedWeek >= maxWeek)
+        {
+            <button aria-label="Sonraki hafta" class="week-arrow" type="button" disabled>
+                <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+        }
+        else
+        {
+            <a aria-label="Sonraki hafta" class="week-arrow text-decoration-none" href="/Fixtures?week=@(Model.SelectedWeek + 1)">
+                <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg>
+            </a>
+        }
+    </nav>
+
+    @* ===== Seçili haftanın bilgi kutusu ===== *@
+    <section aria-live="polite" class="panel week-info">
+        <div>
+            <h2 class="week-info__title">@Model.SelectedWeek. Hafta</h2>
+            <p class="week-info__range">@(selected != null ? WeekRange(selected) : "Bu hafta için fikstür yayımlanmadı")</p>
+        </div>
+
+        @* Maç, takım, gol ve (varsa) canlı maç sayısı *@
+        <ul class="week-facts">
+            <li><strong>@total</strong>maç</li>
+            <li><strong>@teamCount</strong>takım</li>
+            <li><strong>@goals</strong>gol</li>
+            @if (live > 0)
+            {
+                <li><strong>@live</strong>canlı</li>
+            }
+        </ul>
+
+        @* Hafta ilerlemesi: her maç için bir renkli çubuk parçası *@
+        <div class="week-progress">
+            <div class="week-progress__head"><span>Hafta ilerlemesi</span><strong>@doneText</strong></div>
+            <div class="week-progress__bar" aria-hidden="true">
+                @foreach (var m in ordered)
+                {
+                    <span class="seg seg--@m.Status" title="@m.HomeTeamName - @m.AwayTeamName: @StatusLabel(m.Status)"></span>
+                }
+            </div>
+            <div class="week-progress__legend" aria-hidden="true">
+                <span><i style="background:rgba(31,201,138,.6)"></i>Bitti</span>
+                <span><i style="background:var(--green)"></i>Canlı</span>
+                <span><i></i>Başlamadı</span>
+                <span><i style="background:var(--amber)"></i>Ertelendi</span>
+            </div>
+        </div>
+    </section>
+
+    @* Takım arması rozetinin rengi (takım renkleri veritabanında olmadığı için hepsi aynı mavi) *@
+    @{
+        var crestStyle = "--crest-a:#2E7BFF;--crest-b:#0B1730;--crest-ink:#fff";
+    }
+
+    @* ===== Haftanın maçları ===== *@
+    <div class="fixtures-body">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <section aria-labelledby="fixtures-title" class="panel">
+                    <div class="panel__head">
+                        <h2 class="panel__title" id="fixtures-title">Haftanın maçları</h2>
+                        <span class="panel__sub">Saatler Türkiye saatine göre</span>
+                    </div>
+
+                    <div class="fixtures-list">
+                        @if (ordered.Count == 0)
+                        {
+                            @* O haftada hiç maç yoksa bu mesaj görünür *@
+                            <p class="page-note">Bu hafta için henüz fikstür yayımlanmadı.</p>
+                        }
+                        else
+                        {
+                            @* Maçları gün gün grupla: her gün için bir başlık ve maç listesi *@
+                            foreach (var day in ordered.GroupBy(m => m.MatchDate.Date))
+                            {
+                                // Gün başlığı, örn: "12 Eylül Cumartesi"
+                                var dayText = day.Key.ToString("d MMMM dddd", tr);
+
+                                <section class="day-group" aria-label="@dayText">
+                                    <div class="day-head">
+                                        <h3 class="day-head__date">@dayText</h3>
+                                        <span class="day-head__count">@day.Count() maç</span>
+                                    </div>
+
+                                    <ul class="day-list">
+                                        @foreach (var m in day)
+                                        {
+                                            // Kazanan takımın adı kalın, kaybedenin soluk görünmesi için sınıflar
+                                            var homeCls = "";
+                                            var awayCls = "";
+                                            if (m.Status == MatchStatus.Finished && m.HomeScore != m.AwayScore)
+                                            {
+                                                var homeWon = m.HomeScore > m.AwayScore;
+                                                homeCls = homeWon ? "is-winner" : "is-loser";
+                                                awayCls = homeWon ? "is-loser" : "is-winner";
+                                            }
+
+                                            // Skor sadece biten ve canlı maçlarda gösterilir
+                                            var hasScore = (m.Status == MatchStatus.Finished || m.Status == MatchStatus.Live)
+                                            && m.HomeScore != null && m.AwayScore != null;
+
+                                            // Detay sayfasına gidebilen maçlar: biten ve canlı olanlar
+                                            var linked = m.Status == MatchStatus.Finished || m.Status == MatchStatus.Live;
+
+                                            // Kartın CSS sınıfları (duruma göre değişir)
+                                            var cardClass = "fixture-card fixture-card--" + m.Status + (linked ? " is-linked" : "");
+
+                                            <li>
+                                                <article class="@cardClass">
+                                                    @* Saat ve durum rozeti *@
+                                                    <div class="fx-meta">
+                                                        <time class="fx-time">@m.MatchDate.ToString("HH:mm")</time>
+                                                        <span class="status status--@m.Status">@StatusLabel(m.Status)</span>
+                                                    </div>
+
+                                                    @* Ev sahibi takım *@
+                                                    <div class="fx-team fx-team--home @homeCls">
+                                                        <span class="fx-name">@m.HomeTeamName</span>
+                                                        <span class="team-crest" style="@crestStyle" aria-hidden="true">@m.HomeTeamShortName</span>
+                                                    </div>
+
+                                                    @* Skor: yoksa tire (-) gösterilir *@
+                                                    @if (hasScore)
+                                                    {
+                                                        <div class="fx-score">
+                                                            <span>@m.HomeScore</span>
+                                                            <span class="fx-score__sep" aria-hidden="true"></span>
+                                                            <span>@m.AwayScore</span>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="fx-score fx-score--empty">-</div>
+                                                    }
+
+                                                    @* Deplasman takımı *@
+                                                    <div class="fx-team fx-team--away @awayCls">
+                                                        <span class="team-crest" style="@crestStyle" aria-hidden="true">@m.AwayTeamShortName</span>
+                                                        <span class="fx-name">@m.AwayTeamName</span>
+                                                    </div>
+
+                                                    @* Sağ taraf: duruma göre bağlantı ya da bilgi yazısı *@
+                                                    <div class="fx-action">
+                                                        @if (linked)
+                                                        {
+                                                            <a class="fx-link" href="/Match/Detail/@m.Id">
+                                                                @(m.Status == MatchStatus.Live ? "Canlı takip" : "Maç detayı")
+                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                                                            </a>
+                                                        }
+                                                        else if (m.Status == MatchStatus.Postponed)
+                                                        {
+                                                            <span>Yeni tarih bekleniyor</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>@m.Stadium</span>
+                                                        }
+                                                    </div>
+                                                </article>
+                                            </li>
+                                        }
+                                    </ul>
+                                </section>
+                            }
+                        }
+                    </div>
+                </section>
+            </div>
+
+            @* ===== Sağ sütun: haftanın özeti ===== *@
+            @{
+                // Skoru olan (biten ve canlı) maçlar: maç başına gol hesabı için
+                var scoredMatches = ordered
+                .Where(m => (m.Status == MatchStatus.Finished || m.Status == MatchStatus.Live)
+                && m.HomeScore != null && m.AwayScore != null)
+                .ToList();
+
+                // Sadece biten maçlar: sonuç dağılımı (galibiyet/beraberlik) için
+                var finishedMatches = ordered
+                .Where(m => m.Status == MatchStatus.Finished && m.HomeScore != null && m.AwayScore != null)
+                .ToList();
+
+                // Maç başına ortalama gol (maç yoksa 0, sıfıra bölme hatası olmasın)
+                var avgGoals = scoredMatches.Count > 0 ? (double)goals / scoredMatches.Count : 0;
+
+                // Beraberlik, ev sahibi galibiyeti ve deplasman galibiyeti sayıları
+                var draws = finishedMatches.Count(m => m.HomeScore == m.AwayScore);
+                var homeWins = finishedMatches.Count(m => m.HomeScore > m.AwayScore);
+                var awayWins = finishedMatches.Count(m => m.HomeScore < m.AwayScore);
+
+                // Sonuçlanan toplam maç (çubuğu çizip çizmeyeceğimizi buna göre seçeriz)
+                var decided = homeWins + draws + awayWins;
+            }
+
+            <aside aria-label="Haftanın özeti" class="col-lg-4">
+                <div class="side-stack">
+                    <section aria-labelledby="summary-title" class="panel">
+                        <div class="panel__head">
+                            <h2 class="panel__title" id="summary-title">@Model.SelectedWeek. Hafta özeti</h2>
+                        </div>
+
+                        <dl class="summary-list">
+                            <div><dt>Maç</dt><dd>@total</dd></div>
+                            <div><dt>Tamamlanan</dt><dd>@finished</dd></div>
+                            <div><dt>Gol</dt><dd>@goals</dd></div>
+                            <div><dt>Maç başına gol</dt><dd>@avgGoals.ToString("0.00", tr)</dd></div>
+                            <div><dt>Beraberlik</dt><dd>@draws</dd></div>
+                            <div><dt>Ev sahibi galibiyeti</dt><dd>@homeWins</dd></div>
+                            <div><dt>Deplasman galibiyeti</dt><dd>@awayWins</dd></div>
+                        </dl>
+
+                        @* Sonuç dağılımı: mavi = ev sahibi, gri = beraberlik, açık mavi = deplasman *@
+                        <div class="result-split">
+                            <span class="result-split__title">Sonuç dağılımı</span>
+                            @if (decided > 0)
+                            {
+                                <div class="result-split__bar" aria-hidden="true">
+                                    <span class="r-home" style="flex:@homeWins"></span>
+                                    <span class="r-draw" style="flex:@draws"></span>
+                                    <span class="r-away" style="flex:@awayWins"></span>
+                                </div>
+                                <div class="result-split__legend">
+                                    <span><i style="background:var(--blue)"></i>Ev @homeWins</span>
+                                    <span><i style="background:var(--dim)"></i>Beraberlik @draws</span>
+                                    <span><i style="background:var(--ice)"></i>Deplasman @awayWins</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="result-split__legend"><span>Henüz tamamlanan maç yok</span></div>
+                            }
+                        </div>
+
+                        <p class="summary-note">Gol sayısına canlı maçlar dahildir, sonuçlar yalnızca biten maçlardan hesaplanır.</p>
+                    </section>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+</main>

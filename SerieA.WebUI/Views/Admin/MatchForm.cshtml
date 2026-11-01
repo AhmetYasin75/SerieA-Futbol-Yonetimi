@@ -1,0 +1,171 @@
+﻿@* Bu ekranın alacağı veri: MatchFormViewModel (Controller'dan gelir) *@
+@using SerieA.WebUI.ViewModels
+@model MatchFormViewModel
+
+@{
+    // Bu sayfa admin iskeletini kullanır
+    Layout = "_AdminLayout";
+
+    // Id sıfırsa yeni maç ekleniyor, değilse var olan maç düzenleniyor
+    var isNew = Model.Id == 0;
+
+    // Üst çubuktaki başlık, yol yazısı ve menüde vurgulanacak madde
+    ViewData["Title"] = isNew ? "Yeni Maç Ekle" : "Maçı Düzenle";
+    ViewData["Crumb"] = "Yönetim / Maçlar";
+    ViewData["ActiveMenu"] = "matches";
+
+    // Form gönderilince hangi adrese gidecek: ekleme ya da düzenleme
+    var formAction = isNew ? "/Admin/Matches/Create" : "/Admin/Matches/Edit/" + Model.Id;
+
+    // Tarayıcıdaki "datetime-local" kutusunun beklediği biçim: 2026-09-19T20:45
+    var dateValue = Model.MatchDate.ToString("yyyy-MM-ddTHH:mm");
+
+    // "Maç Durumu" açılır listesindeki seçenekler
+    var statusOptions = new[]
+    {
+        (Value: MatchStatus.NotStarted, Label: "Başlamadı"),
+        (Value: MatchStatus.Live, Label: "Canlı"),
+        (Value: MatchStatus.Finished, Label: "Tamamlandı"),
+        (Value: MatchStatus.Postponed, Label: "Ertelendi")
+    };
+
+    // Canlı ya da Tamamlandı ise skor kutuları baştan açık gelir
+    var showScores = Model.Status == MatchStatus.Live || Model.Status == MatchStatus.Finished;
+}
+
+@* ===== Sayfa başlığı ve "Listeye Dön" butonu ===== *@
+<div class="page-head">
+    <div>
+        <span class="page-eyebrow">Serie A 2026/27</span>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-desc">Zorunlu alanlar * ile işaretlenmiştir.</p>
+    </div>
+    <a class="btn-a btn-a--secondary text-decoration-none" href="/Admin/Matches">Listeye Dön</a>
+</div>
+
+<section class="card-a">
+    <form method="post" action="@formAction">
+
+        <div class="modal-body">
+
+            @* Hata mesajı varsa görünür (kendi kontrollerimiz ya da API'den gelen mesaj) *@
+            <div class="form-alert @(Model.ErrorMessage != null ? "is-visible" : "")" role="alert">@Model.ErrorMessage</div>
+
+            @* Düzenlemede maçın Id'sini formla birlikte geri göndermek için gizli kutu *@
+            <input type="hidden" name="Id" value="@Model.Id" />
+
+            <div class="form-grid">
+
+                @* Hafta: 1'den 38'e kadar *@
+                <div class="form-field">
+                    <label class="field-label" for="m-week">Hafta <span class="req">*</span></label>
+                    <select class="select-a" id="m-week" name="Week">
+                        <option value="0">Hafta seçin</option>
+                        @foreach (var w in Enumerable.Range(1, 38))
+                        {
+                            <option value="@w" selected="@(Model.Week == w ? "selected" : null)">@w. Hafta</option>
+                        }
+                    </select>
+                </div>
+
+                @* Maç durumu *@
+                <div class="form-field">
+                    <label class="field-label" for="m-status">Maç Durumu</label>
+                    <select class="select-a" id="m-status" name="Status">
+                        @foreach (var opt in statusOptions)
+                        {
+                            <option value="@opt.Value" selected="@(Model.Status == opt.Value ? "selected" : null)">@opt.Label</option>
+                        }
+                    </select>
+                </div>
+
+                @* Ev sahibi takım. data-stadium: seçilince stadyum kutusunu doldurmak için takımın stadyumu *@
+                <div class="form-field">
+                    <label class="field-label" for="m-home">Ev Sahibi Takım <span class="req">*</span></label>
+                    <select class="select-a" id="m-home" name="HomeTeamId">
+                        <option value="0">Takım seçin</option>
+                        @foreach (var t in Model.Teams)
+                        {
+                            <option value="@t.Id" data-stadium="@t.Stadium" selected="@(Model.HomeTeamId == t.Id ? "selected" : null)">@t.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @* Deplasman takımı *@
+                <div class="form-field">
+                    <label class="field-label" for="m-away">Deplasman Takımı <span class="req">*</span></label>
+                    <select class="select-a" id="m-away" name="AwayTeamId">
+                        <option value="0">Takım seçin</option>
+                        @foreach (var t in Model.Teams)
+                        {
+                            <option value="@t.Id" selected="@(Model.AwayTeamId == t.Id ? "selected" : null)">@t.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @* Tarih ve saat tek kutuda *@
+                <div class="form-field span-2">
+                    <label class="field-label" for="m-date">Maç Tarihi ve Saati <span class="req">*</span></label>
+                    <input class="input-a" id="m-date" name="MatchDate" type="datetime-local" value="@dateValue" required />
+                </div>
+
+                @* Stadyum: boş bırakılırsa ev sahibi takımın stadyumu yazılır *@
+                <div class="form-field span-2">
+                    <label class="field-label" for="m-stadium">Stadyum</label>
+                    <input class="input-a" id="m-stadium" name="Stadium" type="text" placeholder="Ev sahibi seçilince otomatik dolar" value="@Model.Stadium" />
+                </div>
+
+                @* Skor kutuları: sadece Canlı ve Tamamlandı durumlarında görünür (JavaScript açıp kapatır) *@
+                <div class="score-fields span-2" data-score-fields hidden="@(showScores ? null : "hidden")">
+                    <div class="form-field">
+                        <label class="field-label" for="m-hs">Ev sahibi skoru <span class="req">*</span></label>
+                        <input class="input-a" id="m-hs" name="HomeScore" type="number" min="0" max="99" inputmode="numeric" value="@Model.HomeScore" />
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label" for="m-as">Deplasman skoru <span class="req">*</span></label>
+                        <input class="input-a" id="m-as" name="AwayScore" type="number" min="0" max="99" inputmode="numeric" value="@Model.AwayScore" />
+                    </div>
+                </div>
+            </div>
+
+            <p class="field-hint" style="margin:14px 0 12px">Canlı veya Tamamlandı seçildiğinde skor alanları açılır.</p>
+        </div>
+
+        @* Alt şerit: Vazgeç ve Kaydet butonları *@
+        <div class="modal-foot">
+            <a class="btn-a btn-a--secondary text-decoration-none" href="/Admin/Matches">Vazgeç</a>
+            <button class="btn-a btn-a--primary" type="submit">@(isNew ? "Kaydet" : "Güncelle")</button>
+        </div>
+    </form>
+</section>
+
+@* Sayfanın altına yerleşen JavaScript: skor kutularını açıp kapatır, stadyumu otomatik doldurur *@
+@section Scripts {
+    <script>
+        (function () {
+            var statusSelect = document.getElementById('m-status');
+            var scoreFields = document.querySelector('[data-score-fields]');
+            var homeSelect = document.getElementById('m-home');
+            var stadiumInput = document.getElementById('m-stadium');
+
+            // Canlı ya da Tamamlandı seçilince skor kutuları açılır, diğer durumlarda gizlenir
+            function toggleScores() {
+                var show = statusSelect.value === 'Live' || statusSelect.value === 'Finished';
+                scoreFields.hidden = !show;
+            }
+            statusSelect.addEventListener('change', toggleScores);
+            toggleScores();
+
+            // Ev sahibi seçilince stadyum kutusu boşsa (ya da biz doldurmuşsak) takımın stadyumunu yaz
+            var autoStadium = '';
+            homeSelect.addEventListener('change', function () {
+                var option = homeSelect.options[homeSelect.selectedIndex];
+                var stadium = option.dataset.stadium || '';
+                if (stadiumInput.value === '' || stadiumInput.value === autoStadium) {
+                    stadiumInput.value = stadium;
+                    autoStadium = stadium;
+                }
+            });
+        })();
+    </script>
+}

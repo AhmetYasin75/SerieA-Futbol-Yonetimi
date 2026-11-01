@@ -1,0 +1,126 @@
+﻿@* Bu ekranın alacağı veri: StandingViewModel listesi (Controller'dan gelir) *@
+@model List<SerieA.WebUI.ViewModels.StandingViewModel>
+
+@{
+    // Sayfanın tarayıcı sekmesinde görünen başlığı
+    ViewData["Title"] = "Puan Durumu";
+
+    // _Layout'taki <body> etiketine bu sınıf eklenir. Tasarımın stilleri bu sınıfa bağlı
+    ViewData["BodyClass"] = "standings-page";
+
+    // Güncel hafta: her takım haftada 1 maç oynadığı için en çok maç oynayan takımın maç sayısı
+    // Liste boşsa hata vermesin diye 0 yazıyoruz
+    var currentWeek = Model.Count == 0 ? 0 : Model.Max(s => s.Played);
+}
+
+@* _Layout'taki "Styles" bölümüne bu sayfanın CSS dosyasını ekler *@
+@section Styles {
+    <link rel="stylesheet" href="~/css/standings.css" />
+}
+
+<main class="standings-shell container-xl">
+
+    @* ===== Üst başlık alanı (hero) ===== *@
+    <header class="standings-hero">
+        <div class="hero-top">
+            <div>
+                <div class="hero-league">
+                    <span aria-hidden="true" class="league-mark">SA</span>
+                    İtalya, Serie A
+                </div>
+                <h1 class="hero-title">Serie A Puan Durumu</h1>
+                <p class="hero-subtitle">@currentWeek. hafta sonunda güncel sıralama ve gol dengesi.</p>
+            </div>
+
+            @* Sezon, hafta ve takım sayısı kutuları *@
+            <dl class="hero-meta">
+                <div>
+                    <dt>Sezon</dt>
+                    <dd>2026/27</dd>
+                </div>
+                <div>
+                    <dt>Hafta</dt>
+                    <dd>@currentWeek</dd>
+                </div>
+                <div>
+                    <dt>Takım sayısı</dt>
+                    <dd>@Model.Count</dd>
+                </div>
+            </dl>
+        </div>
+    </header>
+
+    @* ===== Puan tablosu (tasarımdaki hali) ===== *@
+    <div class="standings-body">
+        <section aria-labelledby="table-title" class="table-panel">
+
+            <div class="table-toolbar">
+                <h2 class="table-toolbar__title" id="table-title">Genel sıralama</h2>
+            </div>
+
+            <div class="standings-table-wrap">
+                <table class="standings-table">
+                    <caption class="visually-hidden">Serie A 2026/27, @currentWeek. hafta puan durumu</caption>
+                    <thead>
+                        <tr>
+                            <th class="col-pos" scope="col">#</th>
+                            <th class="col-team" scope="col">Takım</th>
+                            <th class="col-num" scope="col"><abbr title="Oynanan maç">O</abbr></th>
+                            <th class="col-num" scope="col"><abbr title="Galibiyet">G</abbr></th>
+                            <th class="col-num" scope="col"><abbr title="Beraberlik">B</abbr></th>
+                            <th class="col-num" scope="col"><abbr title="Mağlubiyet">M</abbr></th>
+                            <th class="col-num col-hide-sm" scope="col"><abbr title="Atılan gol">AG</abbr></th>
+                            <th class="col-num col-hide-sm" scope="col"><abbr title="Yenilen gol">YG</abbr></th>
+                            <th class="col-gd" scope="col"><abbr title="Averaj">AV</abbr></th>
+                            <th class="col-pts" scope="col">Puan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @* Listedeki her takım için bir satır oluşturur *@
+                        @foreach (var s in Model)
+                        {
+                            // Satırın bölge rengi: 1-4 Şampiyonlar Ligi, 5-6 Avrupa, son 3 düşme hattı
+                            var zone = s.Position <= 4 ? "zone-ucl"
+                            : s.Position <= 6 ? "zone-europe"
+                            : s.Position > Model.Count - 3 ? "zone-rel"
+                            : "";
+
+                            // Averaj rengi: artıysa yeşil, eksiyse kırmızı, sıfırsa gri
+                            var gdClass = s.GoalDifference > 0 ? "is-pos"
+                            : s.GoalDifference < 0 ? "is-neg"
+                            : "is-zero";
+
+                            // Averaj yazısı: artıysa başına + koy (+6), eksiyse zaten - ile gelir (-3)
+                            var gdText = s.GoalDifference > 0 ? "+" + s.GoalDifference : s.GoalDifference.ToString();
+
+                            <tr class="standings-row @zone">
+                                <td class="col-pos">@s.Position</td>
+                                <th class="col-team" scope="row">
+                                    <div class="team-cell">
+                                        @* Takım arması: 3 harfli kod yuvarlak rozet içinde (renk bilgisi şimdilik sabit) *@
+                                        <span aria-hidden="true" class="team-crest" style="--crest-a:#2E7BFF;--crest-b:#0B1730;--crest-ink:#fff">@s.ShortName</span>
+                                        <span class="team-name">@s.TeamName</span>
+                                    </div>
+                                </th>
+                                <td class="col-num">@s.Played</td>
+                                <td class="col-num">@s.Won</td>
+                                <td class="col-num">@s.Drawn</td>
+                                <td class="col-num">@s.Lost</td>
+                                <td class="col-num col-hide-sm">@s.GoalsFor</td>
+                                <td class="col-num col-hide-sm">@s.GoalsAgainst</td>
+                                <td class="col-gd"><span class="gd @gdClass">@gdText</span></td>
+                                <td class="col-pts">@s.Points</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @* Tablo altlığı *@
+            <div class="table-foot">
+                <span>Toplam takım: <strong>@Model.Count</strong></span>
+                <span>@currentWeek. hafta sonu itibarıyla</span>
+            </div>
+        </section>
+    </div>
+</main>

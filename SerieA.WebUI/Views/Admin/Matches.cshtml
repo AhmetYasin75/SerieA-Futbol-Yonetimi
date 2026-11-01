@@ -1,0 +1,231 @@
+﻿@* Bu ekranın alacağı veri: AdminMatchesViewModel (Controller'dan gelir) *@
+@using SerieA.WebUI.ViewModels
+@model AdminMatchesViewModel
+
+@{
+    // Bu sayfa _Layout yerine admin iskeletini kullanır
+    Layout = "_AdminLayout";
+
+    // Üst çubuktaki başlık, yol yazısı ve menüde vurgulanacak madde
+    ViewData["Title"] = "Maç Yönetimi";
+    ViewData["Crumb"] = "Yönetim / Maçlar";
+    ViewData["ActiveMenu"] = "matches";
+
+    // Takım arması rozetinin rengi (takım renkleri veritabanında olmadığı için hepsi aynı mavi)
+    var crestStyle = "--crest-a:#2E7BFF;--crest-b:#0B1730";
+
+    // Maç durumunu admin panelinde kullanılan Türkçe yazıya çevirir
+    string StatusLabel(MatchStatus s)
+    {
+        return s switch
+        {
+            MatchStatus.NotStarted => "Başlamadı",
+            MatchStatus.Live => "Canlı",
+            MatchStatus.Finished => "Tamamlandı",
+            _ => "Ertelendi"
+        };
+    }
+
+    // "Durum" açılır listesindeki seçenekler
+    var statusOptions = new[]
+    {
+        (Value: MatchStatus.NotStarted, Label: "Başlamadı"),
+        (Value: MatchStatus.Live, Label: "Canlı"),
+        (Value: MatchStatus.Finished, Label: "Tamamlandı"),
+        (Value: MatchStatus.Postponed, Label: "Ertelendi")
+    };
+}
+
+@* ===== Sayfa başlığı ve "Yeni Maç Ekle" butonu ===== *@
+<div class="page-head">
+    <div>
+        <span class="page-eyebrow">Serie A 2026/27</span>
+        <h1 class="page-title">Maç Yönetimi</h1>
+        <p class="page-desc">Serie A karşılaşmalarını görüntüleyebilir, ekleyebilir, düzenleyebilir ve silebilirsiniz.</p>
+    </div>
+    <a class="btn-a btn-a--primary text-decoration-none" href="/Admin/Matches/Create">
+        <svg aria-hidden="true" class="icon"><use href="#i-plus"></use></svg>
+        Yeni Maç Ekle
+    </a>
+</div>
+
+<section aria-label="Maç listesi" class="card-a">
+
+    @* ===== Filtre alanı: GET ile çalışır, seçimler adres çubuğuna yazılır ===== *@
+    <form class="filter-bar" method="get" action="/Admin/Matches" role="search">
+        <div class="filter-search">
+            <label class="field-label" for="f-team">Takım Ara</label>
+            <div class="input-icon">
+                <svg aria-hidden="true" class="icon"><use href="#i-search"></use></svg>
+                <input autocomplete="off" class="input-a" id="f-team" name="team" placeholder="Takım adı yazın" type="search" value="@Model.Team" />
+            </div>
+        </div>
+
+        <div>
+            <label class="field-label" for="f-week">Hafta Seç</label>
+            <select class="select-a" id="f-week" name="week">
+                <option value="">Tüm Haftalar</option>
+                @foreach (var w in Model.Weeks)
+                {
+                    @* Seçili hafta ise "selected" yazılır (null olunca özellik hiç yazılmaz) *@
+                    <option value="@w" selected="@(Model.Week == w ? "selected" : null)">@w. Hafta</option>
+                }
+            </select>
+        </div>
+
+        <div>
+            <label class="field-label" for="f-status">Durum</label>
+            <select class="select-a" id="f-status" name="status">
+                <option value="">Tümü</option>
+                @foreach (var opt in statusOptions)
+                {
+                    <option value="@opt.Value" selected="@(Model.Status == opt.Value ? "selected" : null)">@opt.Label</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <a class="btn-a btn-a--ghost text-decoration-none" href="/Admin/Matches">Temizle</a>
+            <button class="btn-a btn-a--secondary" type="submit">Filtrele</button>
+        </div>
+    </form>
+
+    @* ===== Maç tablosu ===== *@
+    <div class="table-scroll">
+        <table class="match-table">
+            <caption class="visually-hidden">Serie A maç listesi</caption>
+            <thead>
+                <tr>
+                    <th class="col-id" scope="col">ID</th>
+                    <th scope="col">Hafta</th>
+                    <th scope="col">Tarih</th>
+                    <th scope="col">Saat</th>
+                    <th scope="col">Ev Sahibi</th>
+                    <th class="col-score" scope="col">Skor</th>
+                    <th scope="col">Deplasman</th>
+                    <th scope="col">Durum</th>
+                    <th class="col-actions" scope="col">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Matches.Count == 0)
+                {
+                    @* Filtreye uyan maç yoksa bu mesaj görünür *@
+                    <tr class="table-empty">
+                        <td colspan="9">
+                            <strong>Kayıt bulunamadı</strong>
+                            Filtreleri değiştirin ya da Temizle ile tüm maçları gösterin.
+                        </td>
+                    </tr>
+                }
+
+                @foreach (var m in Model.Matches)
+                {
+                    // Skor sadece canlı ve tamamlanan maçlarda gösterilir
+                    var hasScore = (m.Status == MatchStatus.Live || m.Status == MatchStatus.Finished)
+                    && m.HomeScore != null && m.AwayScore != null;
+
+                    <tr>
+                        <td class="col-id"><span>@m.Id</span></td>
+                        <td class="week-cell">@m.Week. Hafta</td>
+                        <td>@m.MatchDate.ToString("dd.MM.yyyy")</td>
+                        <td>@m.MatchDate.ToString("HH:mm")</td>
+                        <td><span class="team"><span aria-hidden="true" class="team-crest" style="@crestStyle"></span>@m.HomeTeamName</span></td>
+                        <td class="col-score">
+                            @if (hasScore)
+                            {
+                                <span class="score">@m.HomeScore - @m.AwayScore</span>
+                            }
+                            else
+                            {
+                                <span class="score score--empty">-</span>
+                            }
+                        </td>
+                        <td><span class="team"><span aria-hidden="true" class="team-crest" style="@crestStyle"></span>@m.AwayTeamName</span></td>
+                        <td><span class="badge-a badge-a--@m.Status">@StatusLabel(m.Status)</span></td>
+                        <td class="col-actions">
+                            <div class="row-actions">
+                                @* Detay: sitedeki maç detay sayfasını açar *@
+                                <a class="act-btn" href="/Match/Detail/@m.Id" title="Detay" aria-label="Detay: @m.HomeTeamName - @m.AwayTeamName">
+                                    <svg aria-hidden="true" class="icon"><use href="#i-eye"></use></svg>
+                                </a>
+                                @* Düzenle: düzenleme formuna gider (sonraki adımlarda yapacağız) *@
+                                <a class="act-btn" href="/Admin/Matches/Edit/@m.Id" title="Düzenle" aria-label="Düzenle: @m.HomeTeamName - @m.AwayTeamName">
+                                    <svg aria-hidden="true" class="icon"><use href="#i-edit"></use></svg>
+                                </a>
+                                @* Sil: onay penceresi sonraki adımlarda eklenecek. Maçın Id ve adını düğmede saklıyoruz *@
+                                <button class="act-btn act-btn--danger" type="button" data-delete="@m.Id" data-name="@m.HomeTeamName - @m.AwayTeamName" title="Sil" aria-label="Sil: @m.HomeTeamName - @m.AwayTeamName">
+                                    <svg aria-hidden="true" class="icon"><use href="#i-trash"></use></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @* Tablo altlığı: toplam ve gösterilen kayıt sayısı *@
+    <div class="table-foot">
+        <span>@Model.TotalCount kayıttan @Model.Matches.Count tanesi gösteriliyor</span>
+        <span>Sezon 2026/27</span>
+    </div>
+</section>
+
+
+@* ===== Silme onay penceresi: çöp kutusu butonuna basınca açılır ===== *@
+<dialog aria-labelledby="delete-modal-title" class="modal-a modal-a--sm" id="delete-modal">
+    @* Form POST ile gönderilir. Hangi maçın silineceği (action adresi) JavaScript ile ayarlanır *@
+    <form method="post" id="delete-form">
+        <div class="modal-head">
+            <h2 class="modal-title" id="delete-modal-title">Maçı sil</h2>
+            <button aria-label="Kapat" class="icon-btn" data-delete-close type="button">
+                <svg aria-hidden="true" class="icon"><use href="#i-x"></use></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            @* Hangi maçın silineceğini gösteren yazı JavaScript ile doldurulur *@
+            <p class="confirm-text" data-delete-text></p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn-a btn-a--secondary" data-delete-close type="button">Vazgeç</button>
+            <button class="btn-a btn-a--danger" type="submit">Evet, sil</button>
+        </div>
+    </form>
+</dialog>
+
+@* Sayfanın altına yerleşen JavaScript: onay penceresini açar ve doğru maça bağlar *@
+@section Scripts {
+    <script>
+        (function () {
+            var dialog = document.getElementById('delete-modal');
+            var form = document.getElementById('delete-form');
+            var text = document.querySelector('[data-delete-text]');
+
+            // Tablodaki her çöp kutusu butonuna tıklanınca pencereyi aç
+            document.querySelectorAll('[data-delete]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    // Butonda sakladığımız maç Id'si ve adı
+                    var id = button.dataset.delete;
+                    var name = button.dataset.name;
+
+                    // Formun gideceği adresi bu maça göre ayarla: /Admin/Matches/Delete/5
+                    form.action = '/Admin/Matches/Delete/' + id;
+
+                    // Penceredeki soruyu bu maça göre yaz
+                    text.textContent = name + ' maçını silmek istediğinize emin misiniz? Maçın gol, kart ve oyuncu değişikliği kayıtları da silinir.';
+
+                    // Pencereyi aç
+                    dialog.showModal();
+                });
+            });
+
+            // "Vazgeç" ve çarpı butonları pencereyi kapatır
+            document.querySelectorAll('[data-delete-close]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    dialog.close();
+                });
+            });
+        })();
+    </script>
+}

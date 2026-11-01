@@ -1,0 +1,38 @@
+﻿@{
+    // Şu an hangi controller'dayız? (Standings, Fixtures, Match...)
+    // Bunu bilerek menüde doğru bağlantıyı vurgulayacağız
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+
+    // Puan durumu sayfası
+    var onStandings = controller == "Standings";
+
+    // Fikstür sayfası ve maç detay sayfası ("Match") fikstürün parçası sayılır
+    var onFixtures = controller == "Fixtures" || controller == "Match";
+}
+
+@* Sitenin üstündeki gezinme çubuğu. Stilleri wwwroot/css/site-nav.css dosyasında *@
+<header class="site-nav">
+    <div class="container-xl site-nav__inner">
+
+        @* Sol taraf: logo, tıklayınca ana sayfaya (puan durumu) gider *@
+        <a class="site-nav__brand" href="/">
+            <span aria-hidden="true" class="site-nav__mark">SA</span>
+            Serie A
+        </a>
+
+        @* Sağ taraf: sayfa bağlantıları. Açık olan sayfanın bağlantısına "is-active" eklenir *@
+        <nav aria-label="Site menüsü">
+            <ul class="site-nav__links">
+                <li>
+                    <a class="site-nav__link @(onStandings ? "is-active" : "")" href="/Standings">Puan Durumu</a>
+                </li>
+                <li>
+                    <a class="site-nav__link @(onFixtures ? "is-active" : "")" href="/Fixtures">Fikstür</a>
+                </li>
+                <li>
+                    <a class="site-nav__link" href="/Admin/Matches">Yönetim Paneli</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</header>

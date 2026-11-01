@@ -1,0 +1,76 @@
+﻿/* Sitenin üstündeki gezinme çubuğu (puan durumu, fikstür ve yönetim paneli bağlantıları) */
+
+/* Çubuğun kendisi: sayfa kayarken üstte sabit kalır, yarı saydam koyu zemin */
+.site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(8, 15, 32, 0.88);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(120, 150, 220, 0.18);
+}
+
+/* İç alan: logo solda, bağlantılar sağda, yan yana dizilir */
+.site-nav__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 24px;
+    min-height: 52px;
+}
+
+/* Sol taraftaki "SA Serie A" yazısı */
+.site-nav__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ffffff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* "SA" yazılı mavi küçük kare */
+.site-nav__mark {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #2e7bff;
+    font-size: 0.8rem;
+}
+
+/* Bağlantı listesi: yan yana dizilir ve sağa yaslanır */
+.site-nav__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0 0 0 auto;
+    padding: 0;
+    list-style: none;
+}
+
+/* Her bir bağlantı */
+.site-nav__link {
+    display: block;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: #9fb2d9;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+    /* Üzerine gelince */
+    .site-nav__link:hover {
+        background: rgba(46, 123, 255, 0.15);
+        color: #ffffff;
+    }
+
+    /* Şu an açık olan sayfanın bağlantısı vurgulanır */
+    .site-nav__link.is-active {
+        background: rgba(46, 123, 255, 0.28);
+        color: #ffffff;
+    }

@@ -1,0 +1,140 @@
+﻿@{
+    // Hangi menü maddesinin vurgulanacağı. Her sayfa ViewData["ActiveMenu"] ile belirler
+    var active = ViewData["ActiveMenu"] as string ?? "";
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    @* Sekme başlığı. Her sayfa kendi ViewData["Title"] değerini verir *@
+    <title>@ViewData["Title"] | Serie A Admin</title>
+
+    @* Tasarımın kullandığı Barlow yazı tipleri (Google Fonts) *@
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet" />
+
+    @* Bootstrap 5.3.3 ve admin tasarımının kendi stil dosyası *@
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/admin.css" />
+
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="admin">
+
+    @* Menüde ve butonlarda kullanılan ikonlar (Shared klasöründeki _AdminIcons dosyası) *@
+    @await Html.PartialAsync("_AdminIcons")
+
+    @* ===== Soldaki menü (sidebar) ===== *@
+    <aside aria-label="Yönetim menüsü" class="admin-sidebar" id="admin-sidebar">
+        <a class="sidebar-brand" href="/Admin">
+            <span aria-hidden="true" class="brand-mark">SA</span>
+            <span class="brand-text">Serie A Admin</span>
+        </a>
+
+        <p class="sidebar-label">Yönetim</p>
+        <ul class="sidebar-nav">
+            <li>
+                @* Aktif sayfa ise "is-active" sınıfı eklenir, menüde vurgulanır *@
+                <a class="sidebar-link @(active == "matches" ? "is-active" : "")" href="/Admin/Matches" aria-current="@(active == "matches" ? "page" : null)">
+                    <svg aria-hidden="true" class="icon"><use href="#i-ball"></use></svg>
+                    Maçlar
+                </a>
+            </li>
+        </ul>
+
+        <p class="sidebar-label">Siteyi Görüntüle</p>
+        <ul class="sidebar-nav">
+            <li>
+                <a class="sidebar-link" href="/Standings">
+                    <svg aria-hidden="true" class="icon"><use href="#i-table"></use></svg>
+                    Puan Durumu
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link" href="/Fixtures">
+                    <svg aria-hidden="true" class="icon"><use href="#i-calendar"></use></svg>
+                    Haftalık Fikstür
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-foot">
+            <span class="sidebar-season">Sezon 2026/27</span>
+        </div>
+    </aside>
+
+    @* Telefonda menü açılınca arkadaki karartma. Tıklayınca menü kapanır *@
+    <div class="sidebar-backdrop" data-sidebar-close></div>
+
+    @* ===== Sağ taraf: üst çubuk ve sayfa içeriği ===== *@
+    <div class="admin-main">
+
+        <header class="admin-topbar">
+            <div class="topbar-left">
+                @* Sadece telefonda görünen menü açma düğmesi *@
+                <button aria-controls="admin-sidebar" aria-expanded="false" aria-label="Menüyü aç" class="icon-btn menu-toggle" data-sidebar-toggle type="button">
+                    <svg aria-hidden="true" class="icon"><use href="#i-menu"></use></svg>
+                </button>
+                <p class="topbar-title">@ViewData["Title"]</p>
+                <span class="topbar-crumb">@ViewData["Crumb"]</span>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <span class="avatar"><svg aria-hidden="true" class="icon"><use href="#i-user"></use></svg></span>
+                    <span class="topbar-user__text">
+                        <span class="topbar-user__name">Yönetici</span>
+                        <span class="topbar-user__role">Tam yetkili</span>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        @* Her sayfanın kendi içeriği buraya yerleşir *@
+        <main class="admin-content">
+            @RenderBody()
+        </main>
+    </div>
+
+    @* ===== Bildirim alanı: işlem başarılı olunca yeşil mesaj gösterir ===== *@
+    <div aria-live="polite" class="toast-stack" id="toast-stack">
+        @* Controller'da TempData["Success"] ile gönderilen mesaj varsa göster *@
+        @if (TempData["Success"] is string successMessage)
+        {
+            <div class="toast-a toast-a--success" role="status">
+                <svg aria-hidden="true" class="icon"><use href="#i-check"></use></svg>
+                <span>@successMessage</span>
+            </div>
+        }
+    </div>
+
+    <script>
+        (function () {
+            // Menü açma düğmesi, kapatma alanı ve açık/kapalı durumu (telefon görünümü için)
+            var toggleBtn = document.querySelector('[data-sidebar-toggle]');
+
+            function setSidebar(open) {
+                document.body.classList.toggle('sidebar-open', open);
+                toggleBtn.setAttribute('aria-expanded', String(open));
+            }
+
+            toggleBtn.addEventListener('click', function () {
+                setSidebar(!document.body.classList.contains('sidebar-open'));
+            });
+            document.querySelector('[data-sidebar-close]').addEventListener('click', function () {
+                setSidebar(false);
+            });
+
+            // Bildirimleri 3,5 saniye sonra kendiliğinden kaldır
+            document.querySelectorAll('.toast-a').forEach(function (toast) {
+                setTimeout(function () { toast.remove(); }, 3500);
+            });
+        })();
+    </script>
+
+    @* Her sayfanın kendi JavaScript'ini ekleyebileceği yer *@
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    @* Sekme başlığı. Her sayfa kendi ViewData["Title"] değerini verir *@
+    <title>@ViewData["Title"] - Serie A</title>
+
+    @* Tasarımın kullandığı Barlow yazı tipleri (Google Fonts) *@
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet" />
+
+    @* Bootstrap 5.3.3 stil dosyası (tasarımdaki sürümle aynı) *@
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" />
+
+
+    @* Sitenin üstündeki gezinme çubuğunun stil dosyası *@
+    <link rel="stylesheet" href="~/css/site-nav.css" />
+
+    @* Her sayfanın kendi CSS dosyasını ekleyebileceği yer *@
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+
+@* Her sayfa kendi body sınıfını verir (örn: standings-page). Tasarımın stilleri bu sınıfa bağlı *@
+<body class="@ViewData["BodyClass"]">
+
+    @* Sayfanın kendi içeriği buraya yerleşir *@
+
+    @* Sitenin üstündeki gezinme çubuğu (Shared klasöründeki _SiteNav dosyası) *@
+    @await Html.PartialAsync("_SiteNav")
+    @RenderBody()
+
+    @* Bootstrap'in JavaScript dosyası *@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+
+    @* Her sayfanın kendi JavaScript'ini ekleyebileceği yer *@
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
