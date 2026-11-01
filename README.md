@@ -51,11 +51,20 @@ SerieA
 4. Solution'a sağ tıklayıp **Configure Startup Projects → Multiple startup projects** seçin, `SerieA.API` ve `SerieA.WebUI` projelerini **Start** yapın.
 5. `F5` ile çalıştırın. API `https://localhost:7011` adresinde çalışır (WebUI bu adresi `Program.cs` içinden kullanır).
 
-## 📸 Ekranlar
+## 📸 Ekran Görüntüleri
 
-Puan Durumu · Haftalık Fikstür · Maç Detayı · Admin Paneli (Maç Yönetimi)
+### Puan Durumu
+![Puan Durumu](docs/puan-durumu.png)
 
-\---
+### Haftalık Fikstür
+![Haftalık Fikstür](docs/fikstur.png)
+
+### Maç Detayı
+![Maç Detayı](docs/mac-detayi.png)
+
+### Admin Paneli
+![Admin Paneli - Maç Yönetimi](docs/admin-maclar.png)
+![Admin Paneli - Yeni Maç Ekle](docs/admin-mac-ekle.png)
 
 
 
